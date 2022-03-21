@@ -1,6 +1,3 @@
-#![feature(generic_associated_types)]
-#![allow(deprecated_where_clause_location)]
-
 //! Emulate reborrowing for user types.
 //!
 //! Given a `&'a` [mutable] reference of a `&'b` view over some owned object,
@@ -44,89 +41,81 @@
 //! ```
 
 /// Immutable reborrowing.
-pub trait Reborrow {
-    type Target<'b>
-    where
-        Self: 'b;
+pub trait Reborrow<'b>
+where
+    Self: 'b,
+{
+    type Target;
 
-    fn rb<'b>(&'b self) -> Self::Target<'b>;
+    fn rb(&'b self) -> Self::Target;
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut {
-    type Target<'b>
-    where
-        Self: 'b;
+pub trait ReborrowMut<'b>
+where
+    Self: 'b,
+{
+    type Target;
 
-    fn rb_mut<'b>(&'b mut self) -> Self::Target<'b>;
+    fn rb_mut(&'b mut self) -> Self::Target;
 }
 
-impl<'a, T> Reborrow for &'a T
+impl<'b, 'a, T> Reborrow<'b> for &'a T
 where
     T: ?Sized,
+    'a: 'b,
 {
-    type Target<'b>
-    where
-        'a: 'b,
-    = &'b T;
+    type Target = &'b T;
 
-    fn rb<'b>(&'b self) -> Self::Target<'b> {
+    fn rb(&'b self) -> Self::Target {
         *self
     }
 }
 
-impl<'a, T> ReborrowMut for &'a T
+impl<'b, 'a, T> ReborrowMut<'b> for &'a T
 where
     T: ?Sized,
+    'a: 'b,
 {
-    type Target<'b>
-    where
-        'a: 'b,
-    = &'b T;
+    type Target = &'b T;
 
-    fn rb_mut<'b>(&'b mut self) -> Self::Target<'b> {
+    fn rb_mut(&'b mut self) -> Self::Target {
         *self
     }
 }
 
-impl<'a, T> Reborrow for &'a mut T
+impl<'b, 'a, T> Reborrow<'b> for &'a mut T
 where
     T: ?Sized,
+    'a: 'b,
 {
-    type Target<'b>
-    where
-        'a: 'b,
-    = &'b T;
+    type Target = &'b T;
 
-    fn rb<'b>(&'b self) -> Self::Target<'b> {
+    fn rb(&'b self) -> Self::Target {
         *self
     }
 }
 
-impl<'a, T> ReborrowMut for &'a mut T
+impl<'b, 'a, T> ReborrowMut<'b> for &'a mut T
 where
     T: ?Sized,
+    'a: 'b,
 {
-    type Target<'b>
-    where
-        'a: 'b,
-    = &'b mut T;
+    type Target = &'b mut T;
 
-    fn rb_mut<'b>(&'b mut self) -> Self::Target<'b> {
+    fn rb_mut(&'b mut self) -> Self::Target {
         *self
     }
 }
 
-impl<T> Reborrow for Option<T>
+impl<'b, T> Reborrow<'b> for Option<T>
 where
-    T: Reborrow,
+    T: Reborrow<'b>,
+    Self: 'b,
 {
-    type Target<'b>
-    where
-        Self: 'b,
-    = Option<T::Target<'b>>;
+    type Target = Option<T::Target>;
 
-    fn rb<'b>(&'b self) -> Self::Target<'b> {
+    fn rb(&'b self) -> Self::Target {
         match self {
             &None => None,
             &Some(ref x) => Some(x.rb()),
@@ -134,16 +123,14 @@ where
     }
 }
 
-impl<T> ReborrowMut for Option<T>
+impl<'b, T> ReborrowMut<'b> for Option<T>
 where
-    T: ReborrowMut,
+    T: ReborrowMut<'b>,
+    Self: 'b,
 {
-    type Target<'b>
-    where
-        Self: 'b,
-    = Option<T::Target<'b>>;
+    type Target = Option<T::Target>;
 
-    fn rb_mut<'b>(&'b mut self) -> Self::Target<'b> {
+    fn rb_mut(&'b mut self) -> Self::Target {
         match self {
             &mut None => None,
             &mut Some(ref mut x) => Some(x.rb_mut()),
@@ -151,17 +138,15 @@ where
     }
 }
 
-impl<T, E> Reborrow for Result<T, E>
+impl<'b, T, E> Reborrow<'b> for Result<T, E>
 where
-    T: Reborrow,
-    E: Reborrow,
+    T: Reborrow<'b>,
+    E: Reborrow<'b>,
+    Self: 'b,
 {
-    type Target<'b>
-    where
-        Self: 'b,
-    = Result<T::Target<'b>, E::Target<'b>>;
+    type Target = Result<T::Target, E::Target>;
 
-    fn rb<'b>(&'b self) -> Self::Target<'b> {
+    fn rb(&'b self) -> Self::Target {
         match self {
             &Ok(ref v) => Ok(v.rb()),
             &Err(ref e) => Err(e.rb()),
@@ -169,17 +154,15 @@ where
     }
 }
 
-impl<T, E> ReborrowMut for Result<T, E>
+impl<'b, T, E> ReborrowMut<'b> for Result<T, E>
 where
-    T: ReborrowMut,
-    E: ReborrowMut,
+    T: ReborrowMut<'b>,
+    E: ReborrowMut<'b>,
+    Self: 'b,
 {
-    type Target<'b>
-    where
-        Self: 'b,
-    = Result<T::Target<'b>, E::Target<'b>>;
+    type Target = Result<T::Target, E::Target>;
 
-    fn rb_mut<'b>(&'b mut self) -> Self::Target<'b> {
+    fn rb_mut(&'b mut self) -> Self::Target {
         match self {
             &mut Ok(ref mut v) => Ok(v.rb_mut()),
             &mut Err(ref mut e) => Err(e.rb_mut()),
