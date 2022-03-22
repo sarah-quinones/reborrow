@@ -189,4 +189,29 @@ mod tests {
         let opt_mut = &mut opt;
         let _ = opt_mut.rb_mut();
     }
+
+    #[test]
+    fn custom_view_type() {
+        struct MyViewType<'a> {
+            r: &'a mut i32,
+        }
+
+        impl<'b, 'a> ReborrowMut<'b> for MyViewType<'a>
+        where
+            'a: 'b,
+        {
+            type Target = MyViewType<'b>;
+
+            fn rb_mut(&'b mut self) -> Self::Target {
+                MyViewType { r: self.r }
+            }
+        }
+
+        fn takes_mut_option(_o: Option<MyViewType>) {}
+
+        let mut x = 0;
+        let mut o = Some(MyViewType { r: &mut x });
+        takes_mut_option(o.rb_mut()); // `o` is moved here,
+        takes_mut_option(o.rb_mut()); // so it can't be used here.
+    }
 }
