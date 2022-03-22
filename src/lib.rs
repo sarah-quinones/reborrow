@@ -40,18 +40,17 @@
 //! drop(o); // can still be used here
 //! ```
 
-/// Immutable reborrowing.
-pub trait Reborrow<'b>
-where
-    Self: 'b,
-{
-    type Target;
+// Outlives: suggestion from /u/YatoRust
+// https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
 
+/// Immutable reborrowing.
+pub trait Reborrow<'b, Outlives = &'b Self> {
+    type Target;
     fn rb(&'b self) -> Self::Target;
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut<'b>
+pub trait ReborrowMut<'b, Outlives = &'b Self>
 where
     Self: 'b,
 {
@@ -63,7 +62,6 @@ where
 impl<'b, 'a, T> Reborrow<'b> for &'a T
 where
     T: ?Sized,
-    'a: 'b,
 {
     type Target = &'b T;
 
@@ -75,7 +73,6 @@ where
 impl<'b, 'a, T> ReborrowMut<'b> for &'a T
 where
     T: ?Sized,
-    'a: 'b,
 {
     type Target = &'b T;
 
@@ -87,7 +84,6 @@ where
 impl<'b, 'a, T> Reborrow<'b> for &'a mut T
 where
     T: ?Sized,
-    'a: 'b,
 {
     type Target = &'b T;
 
@@ -99,7 +95,6 @@ where
 impl<'b, 'a, T> ReborrowMut<'b> for &'a mut T
 where
     T: ?Sized,
-    'a: 'b,
 {
     type Target = &'b mut T;
 
@@ -111,7 +106,6 @@ where
 impl<'b, T> Reborrow<'b> for Option<T>
 where
     T: Reborrow<'b>,
-    Self: 'b,
 {
     type Target = Option<T::Target>;
 
@@ -126,7 +120,6 @@ where
 impl<'b, T> ReborrowMut<'b> for Option<T>
 where
     T: ReborrowMut<'b>,
-    Self: 'b,
 {
     type Target = Option<T::Target>;
 
@@ -142,7 +135,6 @@ impl<'b, T, E> Reborrow<'b> for Result<T, E>
 where
     T: Reborrow<'b>,
     E: Reborrow<'b>,
-    Self: 'b,
 {
     type Target = Result<T::Target, E::Target>;
 
@@ -158,7 +150,6 @@ impl<'b, T, E> ReborrowMut<'b> for Result<T, E>
 where
     T: ReborrowMut<'b>,
     E: ReborrowMut<'b>,
-    Self: 'b,
 {
     type Target = Result<T::Target, E::Target>;
 
