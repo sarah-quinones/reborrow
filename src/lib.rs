@@ -202,7 +202,8 @@ mod tests {
 
         let mut x = 0;
         let mut o = Some(MyViewType { r: &mut x });
-        takes_mut_option(o.rb_mut()); // `o` is moved here,
-        takes_mut_option(o.rb_mut()); // so it can't be used here.
+        takes_mut_option(o.rb_mut());
+        takes_mut_option(o.rb_mut());
+        drop(o);
     }
 }
