@@ -44,6 +44,8 @@
 //! generates the trait definitions for [`Reborrow`], [`ReborrowMut`], and [`IntoConst`].
 //!
 //! ```
+//! use reborrow::Reborrow;
+//!
 //! mod shared {
 //!     #[derive(Clone, Copy)]
 //!     pub struct I32Ref<'a, 'b> {

@@ -52,6 +52,8 @@ The derive macro can be used with structs or tuple structs, and generates
 the trait definitions for `Reborrow` and `ReborrowMut`.
 
 ```rust
+use reborrow::Reborrow;
+
 mod shared {
     #[derive(Clone, Copy)]
     pub struct I32Ref<'a, 'b> {
