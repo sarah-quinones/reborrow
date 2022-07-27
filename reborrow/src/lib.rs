@@ -43,6 +43,9 @@
 // Outlives: suggestion from /u/YatoRust
 // https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
 
+#[cfg(feature = "derive")]
+pub use reborrow_derive::Reborrow;
+
 /// Immutable reborrowing.
 pub trait Reborrow<'b, Outlives = &'b Self> {
     type Target;
@@ -55,8 +58,13 @@ where
     Self: 'b,
 {
     type Target;
-
     fn rb_mut(&'b mut self) -> Self::Target;
+}
+
+/// Consume a mutable reference to produce an immutable one.
+pub trait IntoConst {
+    type Target;
+    fn into_const(self) -> Self::Target;
 }
 
 impl<'b, 'a, T> Reborrow<'b> for &'a T
@@ -65,6 +73,7 @@ where
 {
     type Target = &'b T;
 
+    #[inline]
     fn rb(&'b self) -> Self::Target {
         *self
     }
@@ -76,8 +85,21 @@ where
 {
     type Target = &'b T;
 
+    #[inline]
     fn rb_mut(&'b mut self) -> Self::Target {
         *self
+    }
+}
+
+impl<'a, T> IntoConst for &'a T
+where
+    T: ?Sized,
+{
+    type Target = &'a T;
+
+    #[inline]
+    fn into_const(self) -> Self::Target {
+        self
     }
 }
 
@@ -87,6 +109,7 @@ where
 {
     type Target = &'b T;
 
+    #[inline]
     fn rb(&'b self) -> Self::Target {
         *self
     }
@@ -98,8 +121,21 @@ where
 {
     type Target = &'b mut T;
 
+    #[inline]
     fn rb_mut(&'b mut self) -> Self::Target {
         *self
+    }
+}
+
+impl<'a, T> IntoConst for &'a mut T
+where
+    T: ?Sized,
+{
+    type Target = &'a T;
+
+    #[inline]
+    fn into_const(self) -> Self::Target {
+        self
     }
 }
 
@@ -109,6 +145,7 @@ where
 {
     type Target = Option<T::Target>;
 
+    #[inline]
     fn rb(&'b self) -> Self::Target {
         match self {
             &None => None,
@@ -123,10 +160,26 @@ where
 {
     type Target = Option<T::Target>;
 
+    #[inline]
     fn rb_mut(&'b mut self) -> Self::Target {
         match self {
             &mut None => None,
             &mut Some(ref mut x) => Some(x.rb_mut()),
+        }
+    }
+}
+
+impl<T> IntoConst for Option<T>
+where
+    T: IntoConst,
+{
+    type Target = Option<T::Target>;
+
+    #[inline]
+    fn into_const(self) -> Self::Target {
+        match self {
+            None => None,
+            Some(x) => Some(x.into_const()),
         }
     }
 }
@@ -138,6 +191,7 @@ where
 {
     type Target = Result<T::Target, E::Target>;
 
+    #[inline]
     fn rb(&'b self) -> Self::Target {
         match self {
             &Ok(ref v) => Ok(v.rb()),
@@ -153,10 +207,27 @@ where
 {
     type Target = Result<T::Target, E::Target>;
 
+    #[inline]
     fn rb_mut(&'b mut self) -> Self::Target {
         match self {
             &mut Ok(ref mut v) => Ok(v.rb_mut()),
             &mut Err(ref mut e) => Err(e.rb_mut()),
+        }
+    }
+}
+
+impl<T, E> IntoConst for Result<T, E>
+where
+    T: IntoConst,
+    E: IntoConst,
+{
+    type Target = Result<T::Target, E::Target>;
+
+    #[inline]
+    fn into_const(self) -> Self::Target {
+        match self {
+            Ok(v) => Ok(v.into_const()),
+            Err(e) => Err(e.into_const()),
         }
     }
 }
