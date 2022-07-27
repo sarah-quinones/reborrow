@@ -10,7 +10,7 @@ license = "MIT"
 keywords = ["reborrow", "lifetime"]
 
 [dependencies]
-reborrow-derive = { path = "../reborrow-derive", optional = true }
+reborrow-derive = { version = "0.3.0", path = "../reborrow-derive", optional = true }
 
 [features]
 default = []
