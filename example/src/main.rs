@@ -1,6 +1,6 @@
 use reborrow::{IntoConst, Reborrow, ReborrowMut};
 
-mod a {
+mod shared {
     #[derive(Clone, Copy)]
     pub struct I32Ref<'a, 'b> {
         pub i: i32,
@@ -13,17 +13,21 @@ mod a {
 }
 
 #[derive(Reborrow)]
-#[Const(a::I32Ref)]
+#[Const(shared::I32Ref)]
 struct I32RefMut<'a, 'b> {
-    #[copy]
+    #[copy] // #[copy] means that the field should be copied instead of reborrowed
     i: i32,
     j: &'a mut i32,
     k: &'b mut i32,
 }
 
 #[derive(Reborrow)]
-#[Const(a::I32TupleRef)]
-pub struct I32TupleRefMut<'a, 'b>(#[copy] i32, &'a mut i32, &'b mut i32);
+#[Const(shared::I32TupleRef)]
+pub struct I32TupleRefMut<'a, 'b>(
+    #[copy] i32, // #[copy] means that the field should be copied instead of reborrowed
+    &'a mut i32,
+    &'b mut i32,
+);
 
 fn main() {
     let i = 0;
@@ -31,16 +35,16 @@ fn main() {
     let k = &mut 0;
     {
         let mut r = I32RefMut { i, j, k };
-        r.rb();
-        r.rb_mut();
-        r.into_const();
+        let _unused = r.rb_mut();
+        let _unused = r.rb();
+        let _unused = r.into_const();
     }
 
     {
         let mut r = I32TupleRefMut(i, j, k);
-        r.rb();
-        r.rb_mut();
-        r.into_const();
+        let _unused = r.rb();
+        let _unused = r.rb_mut();
+        let _unused = r.into_const();
     }
     println!("Hello, world!");
 }

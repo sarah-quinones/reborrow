@@ -1,6 +1,6 @@
 //! Emulate reborrowing for user types.
 //!
-//! Given a `&'a` [mutable] reference of a `&'b` view over some owned object,
+//! Given a `&'a` \[mutable\] reference of a `&'b` view over some owned object,
 //! reborrowing it means getting an active `&'a` view over the owned object,
 //! which renders the original reference inactive until it's dropped, at which point
 //! the original reference becomes active again.
@@ -39,6 +39,40 @@
 //! takes_mut_option(o.rb_mut()); // allows us to use it later on.
 //! drop(o); // can still be used here
 //! ```
+//!
+//! The derive macro can be used with structs or tuple structs, on the mutable variant and
+//! generates the trait definitions for [`Reborrow`], [`ReborrowMut`], and [`IntoConst`].
+//!
+//! ```
+//! mod shared {
+//!     #[derive(Clone, Copy)]
+//!     pub struct I32Ref<'a, 'b> {
+//!         pub i: i32,
+//!         pub j: &'a i32,
+//!         pub k: &'b i32,
+//!     }
+//!
+//!     #[derive(Clone, Copy)]
+//!     pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
+//! }
+//!
+//! #[derive(Reborrow)]
+//! #[Const(shared::I32Ref)]
+//! struct I32RefMut<'a, 'b> {
+//!     #[copy] // #[copy] means that the field should be copied instead of reborrowed.
+//!     i: i32,
+//!     j: &'a mut i32,
+//!     k: &'b mut i32,
+//! }
+//!
+//! #[derive(Reborrow)]
+//! #[Const(shared::I32TupleRef)]
+//! pub struct I32TupleRefMut<'a, 'b>(
+//!     #[copy] i32, // #[copy] means that the field should be copied instead of reborrowed.
+//!     &'a mut i32,
+//!     &'b mut i32,
+//! );
+//! ```
 
 // Outlives: suggestion from /u/YatoRust
 // https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
@@ -47,46 +81,49 @@
 pub use reborrow_derive::Reborrow;
 
 /// Immutable reborrowing.
-pub trait Reborrow<'b, Outlives = &'b Self> {
+pub trait Reborrow<'short, Outlives = &'short Self> {
     type Target;
-    fn rb(&'b self) -> Self::Target;
+    #[must_use]
+    fn rb(&'short self) -> Self::Target;
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut<'b, Outlives = &'b Self>
+pub trait ReborrowMut<'short, Outlives = &'short Self>
 where
-    Self: 'b,
+    Self: 'short,
 {
     type Target;
-    fn rb_mut(&'b mut self) -> Self::Target;
+    #[must_use]
+    fn rb_mut(&'short mut self) -> Self::Target;
 }
 
 /// Consume a mutable reference to produce an immutable one.
 pub trait IntoConst {
     type Target;
+    #[must_use]
     fn into_const(self) -> Self::Target;
 }
 
-impl<'b, 'a, T> Reborrow<'b> for &'a T
+impl<'short, 'a, T> Reborrow<'short> for &'a T
 where
     T: ?Sized,
 {
-    type Target = &'b T;
+    type Target = &'short T;
 
     #[inline]
-    fn rb(&'b self) -> Self::Target {
+    fn rb(&'short self) -> Self::Target {
         *self
     }
 }
 
-impl<'b, 'a, T> ReborrowMut<'b> for &'a T
+impl<'short, 'a, T> ReborrowMut<'short> for &'a T
 where
     T: ?Sized,
 {
-    type Target = &'b T;
+    type Target = &'short T;
 
     #[inline]
-    fn rb_mut(&'b mut self) -> Self::Target {
+    fn rb_mut(&'short mut self) -> Self::Target {
         *self
     }
 }
@@ -103,26 +140,26 @@ where
     }
 }
 
-impl<'b, 'a, T> Reborrow<'b> for &'a mut T
+impl<'short, 'a, T> Reborrow<'short> for &'a mut T
 where
     T: ?Sized,
 {
-    type Target = &'b T;
+    type Target = &'short T;
 
     #[inline]
-    fn rb(&'b self) -> Self::Target {
+    fn rb(&'short self) -> Self::Target {
         *self
     }
 }
 
-impl<'b, 'a, T> ReborrowMut<'b> for &'a mut T
+impl<'short, 'a, T> ReborrowMut<'short> for &'a mut T
 where
     T: ?Sized,
 {
-    type Target = &'b mut T;
+    type Target = &'short mut T;
 
     #[inline]
-    fn rb_mut(&'b mut self) -> Self::Target {
+    fn rb_mut(&'short mut self) -> Self::Target {
         *self
     }
 }
@@ -139,14 +176,14 @@ where
     }
 }
 
-impl<'b, T> Reborrow<'b> for Option<T>
+impl<'short, T> Reborrow<'short> for Option<T>
 where
-    T: Reborrow<'b>,
+    T: Reborrow<'short>,
 {
     type Target = Option<T::Target>;
 
     #[inline]
-    fn rb(&'b self) -> Self::Target {
+    fn rb(&'short self) -> Self::Target {
         match self {
             &None => None,
             &Some(ref x) => Some(x.rb()),
@@ -154,14 +191,14 @@ where
     }
 }
 
-impl<'b, T> ReborrowMut<'b> for Option<T>
+impl<'short, T> ReborrowMut<'short> for Option<T>
 where
-    T: ReborrowMut<'b>,
+    T: ReborrowMut<'short>,
 {
     type Target = Option<T::Target>;
 
     #[inline]
-    fn rb_mut(&'b mut self) -> Self::Target {
+    fn rb_mut(&'short mut self) -> Self::Target {
         match self {
             &mut None => None,
             &mut Some(ref mut x) => Some(x.rb_mut()),
@@ -184,15 +221,15 @@ where
     }
 }
 
-impl<'b, T, E> Reborrow<'b> for Result<T, E>
+impl<'short, T, E> Reborrow<'short> for Result<T, E>
 where
-    T: Reborrow<'b>,
-    E: Reborrow<'b>,
+    T: Reborrow<'short>,
+    E: Reborrow<'short>,
 {
     type Target = Result<T::Target, E::Target>;
 
     #[inline]
-    fn rb(&'b self) -> Self::Target {
+    fn rb(&'short self) -> Self::Target {
         match self {
             &Ok(ref v) => Ok(v.rb()),
             &Err(ref e) => Err(e.rb()),
@@ -200,15 +237,15 @@ where
     }
 }
 
-impl<'b, T, E> ReborrowMut<'b> for Result<T, E>
+impl<'short, T, E> ReborrowMut<'short> for Result<T, E>
 where
-    T: ReborrowMut<'b>,
-    E: ReborrowMut<'b>,
+    T: ReborrowMut<'short>,
+    E: ReborrowMut<'short>,
 {
     type Target = Result<T::Target, E::Target>;
 
     #[inline]
-    fn rb_mut(&'b mut self) -> Self::Target {
+    fn rb_mut(&'short mut self) -> Self::Target {
         match self {
             &mut Ok(ref mut v) => Ok(v.rb_mut()),
             &mut Err(ref mut e) => Err(e.rb_mut()),
@@ -258,13 +295,13 @@ mod tests {
             r: &'a mut i32,
         }
 
-        impl<'b, 'a> ReborrowMut<'b> for MyViewType<'a>
+        impl<'short, 'a> ReborrowMut<'short> for MyViewType<'a>
         where
-            'a: 'b,
+            'a: 'short,
         {
-            type Target = MyViewType<'b>;
+            type Target = MyViewType<'short>;
 
-            fn rb_mut(&'b mut self) -> Self::Target {
+            fn rb_mut(&'short mut self) -> Self::Target {
                 MyViewType { r: self.r }
             }
         }
