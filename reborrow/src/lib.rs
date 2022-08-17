@@ -47,50 +47,63 @@
 //! use reborrow::Reborrow;
 //!
 //! mod shared {
-//!     #[derive(Clone, Copy)]
+//!     use reborrow::ReborrowCopy;
+//!
+//!     #[derive(ReborrowCopy)]
 //!     pub struct I32Ref<'a, 'b> {
 //!         pub i: i32,
 //!         pub j: &'a i32,
 //!         pub k: &'b i32,
 //!     }
 //!
-//!     #[derive(Clone, Copy)]
+//!     #[derive(ReborrowCopy)]
 //!     pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
 //! }
 //!
 //! #[derive(Reborrow)]
 //! #[Const(shared::I32Ref)]
 //! struct I32RefMut<'a, 'b> {
-//!     #[copy] // #[copy] means that the field should be copied instead of reborrowed.
 //!     i: i32,
+//!     #[reborrow]
 //!     j: &'a mut i32,
+//!     #[reborrow]
 //!     k: &'b mut i32,
 //! }
 //!
 //! #[derive(Reborrow)]
 //! #[Const(shared::I32TupleRef)]
 //! pub struct I32TupleRefMut<'a, 'b>(
-//!     #[copy] i32, // #[copy] means that the field should be copied instead of reborrowed.
-//!     &'a mut i32,
-//!     &'b mut i32,
+//!     i32,
+//!     #[reborrow] &'a mut i32,
+//!     #[reborrow] &'b mut i32,
 //! );
 //! ```
 
-// Outlives: suggestion from /u/YatoRust
+// _Outlives: suggestion from /u/YatoRust
 // https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
 
+mod seal {
+    pub trait Seal<T: ?Sized> {}
+    impl<T: ?Sized> Seal<T> for T {}
+}
+
+use seal::Seal;
+
 #[cfg(feature = "derive")]
-pub use reborrow_derive::Reborrow;
+pub use reborrow_derive::{Reborrow, ReborrowCopy};
 
 /// Immutable reborrowing.
-pub trait Reborrow<'short, Outlives = &'short Self> {
+pub trait Reborrow<'short, _Outlives: Seal<&'short Self> = &'short Self>
+where
+    Self: 'short,
+{
     type Target;
     #[must_use]
     fn rb(&'short self) -> Self::Target;
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut<'short, Outlives = &'short Self>
+pub trait ReborrowMut<'short, _Outlives: Seal<&'short Self> = &'short Self>
 where
     Self: 'short,
 {
@@ -104,6 +117,42 @@ pub trait IntoConst {
     type Target;
     #[must_use]
     fn into_const(self) -> Self::Target;
+}
+
+/// This trait is similar to [`std::convert::AsRef`], but works with arbitrary reference proxy
+/// types, instead of being limited to Rust references.
+pub trait AsPseudoRef<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+where
+    Self: 'short,
+{
+    #[must_use]
+    fn as_pseudo_ref(&'short self) -> Target;
+}
+
+/// This trait is similar to [`std::convert::AsMut`], but works with arbitrary reference proxy
+/// types, instead of being limited to Rust references.
+pub trait AsPseudoMut<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+where
+    Self: 'short,
+{
+    #[must_use]
+    fn as_pseudo_mut(&'short mut self) -> Target;
+}
+
+impl<'short, T: ?Sized + AsRef<Target>, Target: ?Sized> AsPseudoRef<'short, &'short Target> for T {
+    #[inline]
+    fn as_pseudo_ref(&'short self) -> &'short Target {
+        self.as_ref()
+    }
+}
+
+impl<'short, T: ?Sized + AsMut<Target>, Target: ?Sized> AsPseudoMut<'short, &'short mut Target>
+    for T
+{
+    #[inline]
+    fn as_pseudo_mut(&'short mut self) -> &'short mut Target {
+        self.as_mut()
+    }
 }
 
 impl<'short, 'a, T> Reborrow<'short> for &'a T
@@ -315,5 +364,11 @@ mod tests {
         takes_mut_option(o.rb_mut());
         takes_mut_option(o.rb_mut());
         drop(o);
+    }
+
+    #[test]
+    fn as_ref() {
+        let v = vec![()];
+        let _r: &[()] = v.as_pseudo_ref();
     }
 }

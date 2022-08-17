@@ -55,31 +55,34 @@ the trait definitions for `Reborrow` and `ReborrowMut`.
 use reborrow::Reborrow;
 
 mod shared {
-    #[derive(Clone, Copy)]
+    use reborrow::ReborrowCopy;
+
+    #[derive(ReborrowCopy)]
     pub struct I32Ref<'a, 'b> {
         pub i: i32,
         pub j: &'a i32,
         pub k: &'b i32,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(ReborrowCopy)]
     pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
 }
 
 #[derive(Reborrow)]
 #[Const(shared::I32Ref)]
 struct I32RefMut<'a, 'b> {
-    #[copy] // #[copy] means that the field should be copied instead of reborrowed.
     i: i32,
+    #[reborrow]
     j: &'a mut i32,
+    #[reborrow]
     k: &'b mut i32,
 }
 
 #[derive(Reborrow)]
 #[Const(shared::I32TupleRef)]
 pub struct I32TupleRefMut<'a, 'b>(
-    #[copy] i32, // #[copy] means that the field should be copied instead of reborrowed.
-    &'a mut i32,
-    &'b mut i32,
+    i32,
+    #[reborrow] &'a mut i32,
+    #[reborrow] &'b mut i32,
 );
 ```
