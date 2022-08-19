@@ -1,19 +1,19 @@
-use reborrow::{IntoConst, Reborrow, ReborrowMut};
+use reborrow::{IntoConst, Reborrow, ReborrowMut, ReborrowTraits};
 
 mod shared {
-    use reborrow::ReborrowCopy;
+    use reborrow::ReborrowCopyTraits;
 
-    #[derive(ReborrowCopy)]
+    #[derive(ReborrowCopyTraits)]
     pub struct I32Ref<'a, 'b> {
         pub i: i32,
         pub j: &'a i32,
         pub k: &'b i32,
     }
 
-    #[derive(ReborrowCopy)]
+    #[derive(ReborrowCopyTraits)]
     pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
 
-    #[derive(ReborrowCopy)]
+    #[derive(ReborrowCopyTraits)]
     pub struct Ref<'a, 'b, T> {
         pub i: i32,
         pub j: &'a T,
@@ -21,7 +21,7 @@ mod shared {
     }
 }
 
-#[derive(Reborrow)]
+#[derive(ReborrowTraits)]
 #[Const(shared::I32Ref)]
 struct I32RefMut<'a, 'b> {
     i: i32,
@@ -31,7 +31,7 @@ struct I32RefMut<'a, 'b> {
     k: &'b mut i32,
 }
 
-#[derive(Reborrow)]
+#[derive(ReborrowTraits)]
 #[Const(shared::I32TupleRef)]
 pub struct I32TupleRefMut<'a, 'b>(i32, #[reborrow] &'a mut i32, #[reborrow] &'b mut i32);
 

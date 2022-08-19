@@ -1,9 +1,22 @@
 //! Emulate reborrowing for user types.
 //!
-//! Given a `&'a` \[mutable\] reference of a `&'b` view over some owned object,
+//! A generalized reference is a type that has reference semantics, without actually being
+//! a native Rust reference (like `&T` and `&mut T`). e.g.:
+//!
+//! ```
+//! struct MyRefMut<'borrow> {
+//!     a: &'borrow mut i32,
+//!     b: &'borrow mut i32,
+//! }
+//! ```
+//!
+//! Given a `&'a` \[mut\] reference of a `&'b` view over some owned object,
 //! reborrowing it means getting an active `&'a` view over the owned object,
 //! which renders the original reference inactive until it's dropped, at which point
 //! the original reference becomes active again.
+//!
+//! This crate defines traits to make generalized references more ergonomic to use by giving the
+//! ability to borrow and reborrow them.
 //!
 //! # Examples:
 //! This fails to compile since we can't use a non-`Copy` value after it's moved.
@@ -44,24 +57,20 @@
 //! generates the trait definitions for [`Reborrow`], [`ReborrowMut`], and [`IntoConst`].
 //!
 //! ```
-//! use reborrow::Reborrow;
+//! use reborrow::{ReborrowCopyTraits, ReborrowTraits};
 //!
-//! mod shared {
-//!     use reborrow::ReborrowCopy;
-//!
-//!     #[derive(ReborrowCopy)]
-//!     pub struct I32Ref<'a, 'b> {
-//!         pub i: i32,
-//!         pub j: &'a i32,
-//!         pub k: &'b i32,
-//!     }
-//!
-//!     #[derive(ReborrowCopy)]
-//!     pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
+//! #[derive(ReborrowCopyTraits)]
+//! pub struct I32Ref<'a, 'b> {
+//!     pub i: i32,
+//!     pub j: &'a i32,
+//!     pub k: &'b i32,
 //! }
 //!
-//! #[derive(Reborrow)]
-//! #[Const(shared::I32Ref)]
+//! #[derive(ReborrowCopyTraits)]
+//! pub struct I32TupleRef<'a, 'b>(pub i32, pub &'a i32, pub &'b i32);
+//!
+//! #[derive(ReborrowTraits)]
+//! #[Const(I32Ref)]
 //! struct I32RefMut<'a, 'b> {
 //!     i: i32,
 //!     #[reborrow]
@@ -70,8 +79,8 @@
 //!     k: &'b mut i32,
 //! }
 //!
-//! #[derive(Reborrow)]
-//! #[Const(shared::I32TupleRef)]
+//! #[derive(ReborrowTraits)]
+//! #[Const(I32TupleRef)]
 //! pub struct I32TupleRefMut<'a, 'b>(
 //!     i32,
 //!     #[reborrow] &'a mut i32,
@@ -90,7 +99,7 @@ mod seal {
 use seal::Seal;
 
 #[cfg(feature = "derive")]
-pub use reborrow_derive::{Reborrow, ReborrowCopy};
+pub use reborrow_derive::{ReborrowCopyTraits, ReborrowTraits};
 
 /// Immutable reborrowing.
 pub trait Reborrow<'short, _Outlives: Seal<&'short Self> = &'short Self>
@@ -119,38 +128,40 @@ pub trait IntoConst {
     fn into_const(self) -> Self::Target;
 }
 
-/// This trait is similar to [`std::convert::AsRef`], but works with arbitrary reference proxy
-/// types, instead of being limited to Rust references.
-pub trait AsPseudoRef<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+/// This trait is similar to [`std::convert::AsRef`], but works with generalized reference
+/// types, instead of being limited to native Rust references.
+pub trait AsGeneralizedRef<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
 where
     Self: 'short,
 {
     #[must_use]
-    fn as_pseudo_ref(&'short self) -> Target;
+    fn as_generalized_ref(&'short self) -> Target;
 }
 
-/// This trait is similar to [`std::convert::AsMut`], but works with arbitrary reference proxy
-/// types, instead of being limited to Rust references.
-pub trait AsPseudoMut<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+/// This trait is similar to [`std::convert::AsMut`], but works with generalized reference
+/// types, instead of being limited to native Rust references.
+pub trait AsGeneralizedMut<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
 where
     Self: 'short,
 {
     #[must_use]
-    fn as_pseudo_mut(&'short mut self) -> Target;
+    fn as_generalized_mut(&'short mut self) -> Target;
 }
 
-impl<'short, T: ?Sized + AsRef<Target>, Target: ?Sized> AsPseudoRef<'short, &'short Target> for T {
+impl<'short, T: ?Sized + AsRef<Target>, Target: ?Sized> AsGeneralizedRef<'short, &'short Target>
+    for T
+{
     #[inline]
-    fn as_pseudo_ref(&'short self) -> &'short Target {
+    fn as_generalized_ref(&'short self) -> &'short Target {
         self.as_ref()
     }
 }
 
-impl<'short, T: ?Sized + AsMut<Target>, Target: ?Sized> AsPseudoMut<'short, &'short mut Target>
+impl<'short, T: ?Sized + AsMut<Target>, Target: ?Sized> AsGeneralizedMut<'short, &'short mut Target>
     for T
 {
     #[inline]
-    fn as_pseudo_mut(&'short mut self) -> &'short mut Target {
+    fn as_generalized_mut(&'short mut self) -> &'short mut Target {
         self.as_mut()
     }
 }
@@ -272,50 +283,26 @@ where
     }
 }
 
-impl<'short, T, E> Reborrow<'short> for Result<T, E>
-where
-    T: Reborrow<'short>,
-    E: Reborrow<'short>,
+impl<'short, T: AsGeneralizedRef<'short, Target>, Target> AsGeneralizedRef<'short, Option<Target>>
+    for Option<T>
 {
-    type Target = Result<T::Target, E::Target>;
-
     #[inline]
-    fn rb(&'short self) -> Self::Target {
+    fn as_generalized_ref(&'short self) -> Option<Target> {
         match self {
-            &Ok(ref v) => Ok(v.rb()),
-            &Err(ref e) => Err(e.rb()),
+            None => None,
+            &Some(ref x) => Some(x.as_generalized_ref()),
         }
     }
 }
 
-impl<'short, T, E> ReborrowMut<'short> for Result<T, E>
-where
-    T: ReborrowMut<'short>,
-    E: ReborrowMut<'short>,
+impl<'short, T: AsGeneralizedMut<'short, Target>, Target> AsGeneralizedMut<'short, Option<Target>>
+    for Option<T>
 {
-    type Target = Result<T::Target, E::Target>;
-
     #[inline]
-    fn rb_mut(&'short mut self) -> Self::Target {
+    fn as_generalized_mut(&'short mut self) -> Option<Target> {
         match self {
-            &mut Ok(ref mut v) => Ok(v.rb_mut()),
-            &mut Err(ref mut e) => Err(e.rb_mut()),
-        }
-    }
-}
-
-impl<T, E> IntoConst for Result<T, E>
-where
-    T: IntoConst,
-    E: IntoConst,
-{
-    type Target = Result<T::Target, E::Target>;
-
-    #[inline]
-    fn into_const(self) -> Self::Target {
-        match self {
-            Ok(v) => Ok(v.into_const()),
-            Err(e) => Err(e.into_const()),
+            None => None,
+            &mut Some(ref mut x) => Some(x.as_generalized_mut()),
         }
     }
 }
@@ -328,14 +315,6 @@ mod tests {
     fn option() {
         let mut a = 0;
         let mut opt = Some(&mut a);
-        let opt_mut = &mut opt;
-        let _ = opt_mut.rb_mut();
-    }
-
-    #[test]
-    fn result() {
-        let mut a = 0;
-        let mut opt = Ok::<&mut i32, &()>(&mut a);
         let opt_mut = &mut opt;
         let _ = opt_mut.rb_mut();
     }
@@ -369,6 +348,6 @@ mod tests {
     #[test]
     fn as_ref() {
         let v = vec![()];
-        let _r: &[()] = v.as_pseudo_ref();
+        let _r: &[()] = v.as_generalized_ref();
     }
 }

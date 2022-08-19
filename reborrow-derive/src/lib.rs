@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::{DeriveInput, GenericParam, Lifetime, LifetimeDef};
 
-#[proc_macro_derive(ReborrowCopy)]
+#[proc_macro_derive(ReborrowCopyTraits)]
 pub fn derive_reborrow_copy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
 
@@ -70,12 +70,36 @@ pub fn derive_reborrow_copy(input: proc_macro::TokenStream) -> proc_macro::Token
                 *self
             }
         }
+
+        impl #impl_generics ::reborrow::AsGeneralizedMut<
+            '__reborrow_lifetime,
+            <Self as ::reborrow::ReborrowMut<'__reborrow_lifetime>>::Target,
+        > for #name #ty_generics
+            #where_clause
+        {
+            #[inline]
+            fn as_generalized_mut(&'__reborrow_lifetime mut self) -> <Self as ::reborrow::ReborrowMut<'__reborrow_lifetime>>::Target {
+                *self
+            }
+        }
+
+        impl #impl_generics ::reborrow::AsGeneralizedRef<
+            '__reborrow_lifetime,
+            <Self as ::reborrow::Reborrow<'__reborrow_lifetime>>::Target,
+        > for #name #ty_generics
+            #where_clause
+        {
+            #[inline]
+            fn as_generalized_ref(&'__reborrow_lifetime self) -> <Self as ::reborrow::Reborrow<'__reborrow_lifetime>>::Target {
+                *self
+            }
+        }
     };
 
     expanded.into()
 }
 
-#[proc_macro_derive(Reborrow, attributes(reborrow, Const))]
+#[proc_macro_derive(ReborrowTraits, attributes(reborrow, Const))]
 pub fn derive_reborrow(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
 
@@ -196,6 +220,30 @@ pub fn derive_reborrow(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
             #[inline]
             fn rb(&'__reborrow_lifetime self) -> <Self as ::reborrow::Reborrow>::Target {
                 #rb
+            }
+        }
+
+        impl #impl_generics ::reborrow::AsGeneralizedMut<
+            '__reborrow_lifetime,
+            <Self as ::reborrow::ReborrowMut<'__reborrow_lifetime>>::Target,
+        > for #name #ty_generics
+            #where_clause
+        {
+            #[inline]
+            fn as_generalized_mut(&'__reborrow_lifetime mut self) -> <Self as ::reborrow::ReborrowMut<'__reborrow_lifetime>>::Target {
+                <Self as ::reborrow::ReborrowMut>::rb_mut(self)
+            }
+        }
+
+        impl #impl_generics ::reborrow::AsGeneralizedRef<
+            '__reborrow_lifetime,
+            <Self as ::reborrow::Reborrow<'__reborrow_lifetime>>::Target,
+        > for #name #ty_generics
+            #where_clause
+        {
+            #[inline]
+            fn as_generalized_ref(&'__reborrow_lifetime self) -> <Self as ::reborrow::Reborrow<'__reborrow_lifetime>>::Target {
+                <Self as ::reborrow::Reborrow>::rb(self)
             }
         }
     };
