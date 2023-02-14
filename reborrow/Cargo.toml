@@ -1,6 +1,6 @@
 [package]
 name = "reborrow"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 authors = ["sarah <>"]
 description = "Emulate reborrowing for user types."
@@ -10,7 +10,7 @@ license = "MIT"
 keywords = ["reborrow", "lifetime"]
 
 [dependencies]
-reborrow-derive = { version = "0.5.0", path = "../reborrow-derive", optional = true }
+reborrow-derive = { version = "0.5", path = "../reborrow-derive", optional = true }
 
 [features]
 default = []
