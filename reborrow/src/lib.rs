@@ -102,10 +102,7 @@ pub trait Reborrow<'short, _Outlives = &'short Self> {
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut<'short, _Outlives = &'short Self>
-where
-    Self: 'short,
-{
+pub trait ReborrowMut<'short, _Outlives = &'short Self> {
     type Target;
     #[must_use]
     fn rb_mut(&'short mut self) -> Self::Target;
@@ -120,20 +117,14 @@ pub trait IntoConst {
 
 /// This trait is similar to [`std::convert::AsRef`], but works with generalized reference
 /// types, instead of being limited to native Rust references.
-pub trait AsGeneralizedRef<'short, Target, _Outlives = &'short Self>
-where
-    Self: 'short,
-{
+pub trait AsGeneralizedRef<'short, Target, _Outlives = &'short Self> {
     #[must_use]
     fn as_generalized_ref(&'short self) -> Target;
 }
 
 /// This trait is similar to [`std::convert::AsMut`], but works with generalized reference
 /// types, instead of being limited to native Rust references.
-pub trait AsGeneralizedMut<'short, Target, _Outlives = &'short Self>
-where
-    Self: 'short,
-{
+pub trait AsGeneralizedMut<'short, Target, _Outlives = &'short Self> {
     #[must_use]
     fn as_generalized_mut(&'short mut self) -> Target;
 }
@@ -315,10 +306,7 @@ mod tests {
             r: &'a mut i32,
         }
 
-        impl<'short, 'a> ReborrowMut<'short> for MyViewType<'a>
-        where
-            'a: 'short,
-        {
+        impl<'short, 'a> ReborrowMut<'short> for MyViewType<'a> {
             type Target = MyViewType<'short>;
 
             fn rb_mut(&'short mut self) -> Self::Target {
