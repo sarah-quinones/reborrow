@@ -91,28 +91,18 @@
 // _Outlives: suggestion from /u/YatoRust
 // https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
 
-mod seal {
-    pub trait Seal<T: ?Sized> {}
-    impl<T: ?Sized> Seal<T> for T {}
-}
-
-use seal::Seal;
-
 #[cfg(feature = "derive")]
 pub use reborrow_derive::{ReborrowCopyTraits, ReborrowTraits};
 
 /// Immutable reborrowing.
-pub trait Reborrow<'short, _Outlives: Seal<&'short Self> = &'short Self>
-where
-    Self: 'short,
-{
+pub trait Reborrow<'short, _Outlives = &'short Self> {
     type Target;
     #[must_use]
     fn rb(&'short self) -> Self::Target;
 }
 
 /// Mutable reborrowing.
-pub trait ReborrowMut<'short, _Outlives: Seal<&'short Self> = &'short Self>
+pub trait ReborrowMut<'short, _Outlives = &'short Self>
 where
     Self: 'short,
 {
@@ -130,7 +120,7 @@ pub trait IntoConst {
 
 /// This trait is similar to [`std::convert::AsRef`], but works with generalized reference
 /// types, instead of being limited to native Rust references.
-pub trait AsGeneralizedRef<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+pub trait AsGeneralizedRef<'short, Target, _Outlives = &'short Self>
 where
     Self: 'short,
 {
@@ -140,7 +130,7 @@ where
 
 /// This trait is similar to [`std::convert::AsMut`], but works with generalized reference
 /// types, instead of being limited to native Rust references.
-pub trait AsGeneralizedMut<'short, Target, _Outlives: Seal<&'short Self> = &'short Self>
+pub trait AsGeneralizedMut<'short, Target, _Outlives = &'short Self>
 where
     Self: 'short,
 {
