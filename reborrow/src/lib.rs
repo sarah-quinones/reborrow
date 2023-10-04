@@ -87,6 +87,7 @@
 //!     #[reborrow] &'b mut i32,
 //! );
 //! ```
+#![no_std]
 
 // _Outlives: suggestion from /u/YatoRust
 // https://www.reddit.com/r/rust/comments/tjzy97/reborrow_emulating_reborrowing_for_user_types/i1nco4i/
@@ -325,7 +326,7 @@ mod tests {
 
     #[test]
     fn as_ref() {
-        let v = vec![()];
+        let v = [()];
         let _r: &[()] = v.as_generalized_ref();
     }
 }
